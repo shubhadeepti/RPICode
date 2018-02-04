@@ -1,0 +1,9 @@
+numpy
+pandas
+scipy
+json_tricks
+scikit-learn==0.18.2
+auditok
+scikits.talkbox
+statistics
+
