@@ -5,20 +5,33 @@ import MySQLdb
 import numpy as np
 from sklearn.externals import joblib
 import AudioFeatures
-
 from scipy.io import wavfile
 from sklearn.feature_selection import SelectFromModel
 import wave
 import time
 import shutil
 import statistics
-
 from sklearn import preprocessing
-
 from auditok import ADSFactory, AudioEnergyValidator, StreamTokenizer, player_for, dataset
-
 import warnings
 warnings.filterwarnings("ignore")
+import firebase_admin
+from firebase_admin import credentials
+from firebase_admin import db
+import datetime
+from firebase_admin import storage
+date_now=datetime.datetime.now()
+
+timestamp=date_now.strftime('%d-%m-%y_%H:%M')
+
+cred = credentials.Certificate('/home/pi/rwmds/dhas-mobile-firebase-adminsdk-ox88m-8320851dad.json')
+
+
+firebase_admin.initialize_app(cred, {
+    'storageBucket': 'dhas-mobile.appspot.com',
+'databaseURL' : 'https://dhas-mobile.firebaseio.com/'
+})
+bucket=storage.bucket()
 
 disease_dict={1:'Asthma',2:'BronchialAsthma',3:'Bronchieatasis',4:'Bronchitis',5:'COPD',5:'Empyema',5:'ILD',6:'Empyema',7:'ILD IPF',8:'ILD NSIP',9:'Mass Lesion',10:'Pneumonia',11:'Synpneumonic_Effusion',12:'TB_suspected',13:'thymoma',14:'Normal_Cough'}
 
@@ -273,6 +286,16 @@ if __name__ == '__main__':
 
     json_data=dumps({"patientID":patientID,"disease":output},primitives=True)
     print(json_data)
+    
+    db_root = db.reference()
+    new_user = db_root.child(patientID.get()).child(timestamp).push({
+    'PatientID' :patientID ,
+    'Symptoms' : str(symptoms),
+    'advice':output
+    })
+    sampleblob=bucket.blob(patientID.get()+'/'+timestamp)
+    sampleblob.upload_from_filename(signal_path)
+
 
 # print('completed')
 #print(time.clock())
