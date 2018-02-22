@@ -64,10 +64,6 @@ def record():
     cmd='python dhas/audioRecord.py '+patientID.get()
     subprocess.Popen(cmd,shell=True)
 
-
-
-
-
 def selectPatientID():
     dirname = filedialog.askdirectory()
     patientID.set(dirname)
@@ -79,16 +75,19 @@ def selectCoughSample():
     coughpath.set(dirname)
 
 def get_patient_symptoms(patientid):
-    cursor.execute('select symptoms from va_patients where patientID=%s', (patientid,))
+
+    #firebase token from name field
+    cursor.execute('select symptoms,name from va_patients where patientID=%s', (patientid,))
     results = cursor.fetchone()
-    #print(results)
+    print(results[1])
+    print(results[0])
     symptoms = map(int, results[0].split(','))
-    return symptoms
+    return symptoms,results[1]
 
 def submit():
 
     if patientID.get()=='':
-	tkMessageBox.showinfo(message="Enter patientID")
+	tkMessageBox.showinfo(message="select patientID")
         return
 
     if coughpath.get()=='':
@@ -98,10 +97,8 @@ def submit():
     coughpath.set('')
     
 
-    sampleblob=bucket.blob(patientID.get()+'/'+timestamp)
-    sampleblob.upload_from_filename(signal_path)
-
-    symptoms= get_patient_symptoms(patientID.get())
+   
+    symptoms,fcmtoken= get_patient_symptoms(patientID.get())
 
 
     print('symptoms',np.shape(symptoms))
@@ -130,7 +127,7 @@ def submit():
       color='#f45342'
     ),
   ),
-  topic='test',
+  token=fcmtoken
 )
 
     # Send a message to the device corresponding to the provided
@@ -139,6 +136,21 @@ def submit():
     # Response is a message ID string.
     print('Successfully sent message:', response)
     tkMessageBox.showinfo(message=output)
+
+    #upload raw audio to the cloud storage
+    fileUpload = bucket.blob(patientID.get()+'/'+timestamp+'/'+timestamp)
+    fileUpload.upload_from_filename(signal_path)
+
+    #upload extracted events to the cloud
+    '''
+    for file in os.listdir('recordings/'+patientid+'/cough'):
+        fileUpload = bucket.blob(patientid + '/' + timestamp + '/cough/' + file)
+        fileUpload.upload_from_filename('recordings/'+patientid+'/cough/'+ file)
+
+    for file in os.listdir('recordings/' + patientid + '/noncough'):
+        fileUpload = bucket.blob(patientid + '/' + timestamp + '/noncough/' + file)
+        fileUpload.upload_from_filename('recordings/' + patientid + '/noncough/' + file)
+    '''
     print("Data sync completed")
 
     #cmd='curl http://localhost:1880/start-node2?name='+data
@@ -170,7 +182,7 @@ class AudioRecord():
 
     audio = pyaudio.PyAudio()
 
-    path = '/home/pi/recordings/' + "UNKNOWN" + '/' + str(int(time.time())) + '.wav'
+    path = '/home/pi/coughanalysis_ann/disease/vamshi/c1.wav'
     coughpath.set(path)
     rec = recorder.Recorder(channels=1)
     recfile2 = rec.open(path, 'wb')
